@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>imu_fusion</name>
+  <version>0.0.1</version>
+  <description>Fusionne les messages IMU provenant de l'accéléromètre et du gyroscope de la RealSense</description>
+  <maintainer email="jocelyn.deleuil@ensta.fr">Jocelyn Deleuil</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>message_filters</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
