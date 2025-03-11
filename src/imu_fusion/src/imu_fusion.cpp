@@ -5,8 +5,6 @@
 #include "message_filters/sync_policies/approximate_time.h"
 #include "message_filters/synchronizer.h"
 
-#include <Eigen/Dense>
-
 using sensor_msgs::msg::Imu;
 using namespace std::chrono_literals;
 
@@ -18,19 +16,6 @@ class ImuFusionNode : public rclcpp::Node
 public:
   ImuFusionNode() : Node("imu_fusion")
   {
-    this->declare_parameter<bool>("apply_transform", false);
-    this->get_parameter("apply_transform", apply_transform_);
-
-    if (apply_transform_) {
-      // Définir ici la matrice de transformation statique entre le repère du gyroscope
-      // et celui de l'accéléromètre en cas de besoin. Exemple : rotation de 180° autour de l'axe Y.
-      Eigen::AngleAxisd rotation(M_PI, Eigen::Vector3d::UnitY());
-      gyro_to_accel_ = rotation.toRotationMatrix();
-      RCLCPP_INFO(this->get_logger(), "Transformation statique activée du gyroscope vers l'accéléromètre.");
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Aucune transformation statique appliquée; utilisation du repère de l'accéléromètre.");
-    }
-
     rclcpp::QoS qos_profile(10);
     qos_profile.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
 
@@ -64,21 +49,9 @@ private:
     // Utiliser le repère de l'accéléromètre comme référence
     fused.header.frame_id = accel_msg->header.frame_id;
 
-    // Prendre directement les mesures de l'accéléromètre pour l'accélération linéaire
+    // Fusionner les mesures : accélération de l'accéléromètre et vitesse angulaire du gyroscope
     fused.linear_acceleration = accel_msg->linear_acceleration;
-
-    // Pour la vitesse angulaire, appliquer la transformation si activée
-    geometry_msgs::msg::Vector3 gyro_transformed = gyro_msg->angular_velocity;
-    if (apply_transform_) {
-      Eigen::Vector3d gyro_vec(gyro_msg->angular_velocity.x,
-                               gyro_msg->angular_velocity.y,
-                               gyro_msg->angular_velocity.z);
-      Eigen::Vector3d transformed_vec = gyro_to_accel_ * gyro_vec;
-      gyro_transformed.x = transformed_vec.x();
-      gyro_transformed.y = transformed_vec.y();
-      gyro_transformed.z = transformed_vec.z();
-    }
-    fused.angular_velocity = gyro_transformed;
+    fused.angular_velocity = gyro_msg->angular_velocity;
 
     // Fusionner les covariances
     fused.linear_acceleration_covariance = accel_msg->linear_acceleration_covariance;
@@ -90,17 +63,10 @@ private:
 
   rclcpp::Publisher<Imu>::SharedPtr imu_pub_;
 
-  // Abonnements via message_filters
   message_filters::Subscriber<Imu> accel_sub_{this, "/camera/camera/accel/sample"};
   message_filters::Subscriber<Imu> gyro_sub_{this, "/camera/camera/gyro/sample"};
 
-  // Synchronizer pour fusionner les deux flux de messages
   std::shared_ptr<Synchronizer> sync_;
-
-  // Paramètre pour l'application de transformation
-  bool apply_transform_{false};
-  // Matrice de transformation statique du repère du gyroscope vers celui de l'accéléromètre
-  Eigen::Matrix3d gyro_to_accel_;
 };
 
 int main(int argc, char ** argv)
